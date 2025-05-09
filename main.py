@@ -164,7 +164,6 @@ async def upload_file(
     try:
         # Forward request to data collector
         async with httpx.AsyncClient() as client:
-            # Reset file position to beginning
             await file.seek(0)
             
             # Properly format the files parameter
@@ -213,23 +212,32 @@ async def process_wikipedia_url(
         raise HTTPException(status_code=400, detail="URL is required")
     
     try:
-        # Forward request to data collector
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{DATA_COLLECTOR_URL}/api/collections/wikipedia",
-                json={"url": url,
-                      "script_type": script_type,
-                      "target_audience": target_audience,
-                      "duration": duration,
-                      "voice": voice,
-                      "language": language,
-                      "visual_style": visual_style
-                      }
-            )
-            response.raise_for_status()
-            return response.json()
-    except httpx.HTTPError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Use the make_service_request helper which has retry logic
+        logger.info(f"Sending Wikipedia URL request to data collector: {url}")
+        response = await make_service_request(
+            "POST",
+            f"{DATA_COLLECTOR_URL}/api/collections/wikipedia",
+            json={
+                "url": url,
+                "script_type": script_type,
+                "target_audience": target_audience,
+                "duration": duration,
+                "voice": voice,
+                "language": language,
+                "visual_style": visual_style
+            }
+        )
+        
+        logger.info(f"Wikipedia response successful with status: {response.status_code}")
+        return response.json()
+    except HTTPException as he:
+        # Re-raise HTTP exceptions directly
+        logger.error(f"HTTP error processing Wikipedia URL: {str(he)}")
+        raise
+    except Exception as e:
+        # Log and wrap other exceptions
+        logger.error(f"Error processing Wikipedia URL: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing Wikipedia URL: {str(e)}")
 
 @app.post("/api/collections")
 async def process_script(
@@ -246,53 +254,61 @@ async def process_script(
     metadata = data.get('metadata', {})
     
     try:
-        # Forward request to data collector
-        async with httpx.AsyncClient() as client:
-            # Prepare request body with all fields
-            request_body = {
-                "title": title,
-                "content": content,
-                "script_type": metadata.get('script_type'),
-                "target_audience": metadata.get('target_audience'),
-                "duration": metadata.get('duration'),
-                "voice": metadata.get('voice'),
-                "language": metadata.get('language'),
-                "visual_style": metadata.get('visual_style')
-            }
-            
-            # Filter out None values
-            request_body = {k: v for k, v in request_body.items() if v is not None}
-            
-            response = await client.post(
-                f"{DATA_COLLECTOR_URL}/api/collections/script",
-                json=request_body
-            )
-            response.raise_for_status()
-            return response.json()
-    except httpx.HTTPError as e:
+        # Prepare request body with all fields
+        request_body = {
+            "title": title,
+            "content": content,
+            "script_type": metadata.get('script_type'),
+            "target_audience": metadata.get('target_audience'),
+            "duration": metadata.get('duration'),
+            "voice": metadata.get('voice'),
+            "language": metadata.get('language'),
+            "visual_style": metadata.get('visual_style')
+        }
+        
+        # Filter out None values
+        request_body = {k: v for k, v in request_body.items() if v is not None}
+        
+        # Use the make_service_request helper which has retry logic
+        logger.info(f"Sending script to data collector. Title: {title}")
+        response = await make_service_request(
+            "POST",
+            f"{DATA_COLLECTOR_URL}/api/collections/script",
+            json=request_body
+        )
+        
+        logger.info(f"Script processing successful with status: {response.status_code}")
+        return response.json()
+    except HTTPException as he:
+        # Re-raise HTTP exceptions directly
+        logger.error(f"HTTP error processing script: {str(he)}")
+        raise
+    except Exception as e:
+        # Log and wrap other exceptions
         logger.error(f"Error processing script: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error processing script: {str(e)}")
 
 @app.get("/api/collections/{collection_id}")
 async def get_collection(collection_id: str):
     """Get a collection by ID"""
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{DATA_COLLECTOR_URL}/api/collections/{collection_id}"
-            )
-
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=response.json().get("detail", "Error retrieving collection")
-                )
-
-            return response.json()
-
+        # Use the make_service_request helper which has retry logic
+        logger.info(f"Getting collection with ID: {collection_id}")
+        response = await make_service_request(
+            "GET",
+            f"{DATA_COLLECTOR_URL}/api/collections/{collection_id}"
+        )
+        
+        logger.info(f"Collection retrieval successful with status: {response.status_code}")
+        return response.json()
+    except HTTPException as he:
+        # Re-raise HTTP exceptions directly
+        logger.error(f"HTTP error retrieving collection: {str(he)}")
+        raise
     except Exception as e:
+        # Log and wrap other exceptions
         logger.error(f"Error retrieving collection: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error retrieving collection: {str(e)}")
 
 # Script Generator Routes
 @app.post("/api/scripts")

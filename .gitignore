@@ -1,47 +1,45 @@
-# Python
+# Python bytecode
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# Virtual Environment
+# Virtual environment
 venv/
 env/
 ENV/
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Logs
-*.log
-logs/
-
-# Local configurations
+# Environment variables and secrets
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*.local
 
-# OS specific
+# IDE and editor files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+logs/
+*.log
+log.txt
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# OS specific files
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Application specific
+*.db
+*.sqlite3
+temp/
+cache/ 
