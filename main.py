@@ -181,7 +181,8 @@ async def upload_file(
             response = await client.post(
                 f"{DATA_COLLECTOR_URL}/api/collections/upload-file",
                 files=files,
-                data=data
+                data=data,
+                timeout=60.0
             )
 
             if response.status_code != 200 and response.status_code != 201:
@@ -433,6 +434,7 @@ async def get_durations():
         logger.error(f"Error fetching durations: {str(e)}")
         raise HTTPException(status_code=500, detail="Error fetching durations")
 
+# Handler for Vercel serverless function
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 
