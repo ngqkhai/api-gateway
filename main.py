@@ -930,6 +930,14 @@ async def get_durations():
     durations = await get_configurations("durations")
     return durations
 
+
+
+class VoiceSynthesisRequest(BaseModel):
+    text: str
+    voice_id: str
+    language: str
+    # Add other required fields
+
 @app.post("/api/v1/voice/synthesize")
 async def synthesize_voice(request: Request):
     """Forward voice synthesis request to the voice synthesis service"""
@@ -938,23 +946,40 @@ async def synthesize_voice(request: Request):
         body = await request.json()
         logger.info(f"Forwarding voice synthesis request: {json.dumps(body, default=str)[:200]}...")
         
-        # Forward to voice synthesis service
-        response = await make_service_request(
-            "POST",
-            f"{VOICE_SYNTHESIS_URL}/api/v1/voice/synthesize",
-            json=body
-        )
+        # Extra debug logging for service URL
+        logger.info(f"Using voice synthesis URL: {VOICE_SYNTHESIS_URL}")
         
-        logger.info(f"Voice synthesis request successful with status: {response.status_code}")
-        return response.json()
+        # Forward to voice synthesis service
+        try:
+            response = await make_service_request(
+                "POST",
+                f"{VOICE_SYNTHESIS_URL}/api/v1/voice/synthesize",
+                json=body,
+                timeout=30.0  # Increased timeout for voice synthesis
+            )
+            
+            logger.info(f"Voice synthesis request successful with status: {response.status_code}")
+            return response.json()
+        except httpx.TimeoutException:
+            logger.error("Voice synthesis request timed out")
+            raise HTTPException(
+                status_code=504,
+                detail="Voice synthesis service timeout - the operation might be still processing"
+            )
     except HTTPException as he:
         # Re-raise HTTP exceptions directly
         logger.error(f"HTTP error in voice synthesis: {str(he)}")
         raise
     except Exception as e:
         # Log and wrap other exceptions
-        logger.error(f"Error in voice synthesis: {str(e)}")
+        logger.error(f"Error in voice synthesis: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error in voice synthesis: {str(e)}")
+
+class VisualGenerationRequest(BaseModel):
+    script: str
+    type: str
+    style: str
+    resolution: str
 
 @app.post("/api/visuals")
 async def generate_visuals(request: Request):
@@ -964,24 +989,40 @@ async def generate_visuals(request: Request):
         body = await request.json()
         logger.info(f"Forwarding visual generation request: {json.dumps(body, default=str)[:200]}...")
         
-        # Forward to visual generation service
-        response = await make_service_request(
-            "POST",
-            f"{VISUAL_GENERATION_URL}/api/visuals",
-            json=body
-        )
+        # Extra debug logging for service URL
+        logger.info(f"Using visual generation URL: {VISUAL_GENERATION_URL}")
         
-        logger.info(f"Visual generation request successful with status: {response.status_code}")
-        return response.json()
+        # Forward to visual generation service
+        try:
+            response = await make_service_request(
+                "POST",
+                f"{VISUAL_GENERATION_URL}/api/visuals",
+                json=body,
+                timeout=30.0  # Increased timeout for image generation
+            )
+            
+            logger.info(f"Visual generation request successful with status: {response.status_code}")
+            return response.json()
+        except httpx.TimeoutException:
+            logger.error("Visual generation request timed out")
+            raise HTTPException(
+                status_code=504,
+                detail="Visual generation service timeout - the operation might be still processing"
+            )
     except HTTPException as he:
         # Re-raise HTTP exceptions directly
         logger.error(f"HTTP error in visual generation: {str(he)}")
         raise
     except Exception as e:
         # Log and wrap other exceptions
-        logger.error(f"Error in visual generation: {str(e)}")
+        logger.error(f"Error in visual generation: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error in visual generation: {str(e)}")
 
+@app.options("/api/v1/voice/synthesize")
+@app.options("/api/visuals")
+async def options_handler():
+    """Handle CORS preflight requests"""
+    return {}
 
 # Handler for Vercel serverless function
 if __name__ == "__main__":
