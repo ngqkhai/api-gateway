@@ -939,18 +939,11 @@ class VoiceSynthesisRequest(BaseModel):
     # Add other required fields
 
 @app.post("/api/v1/voice/synthesize")
-async def synthesize_voice(request: Request):
+async def synthesize_voice(request: VoiceSynthesisRequest):
     """Forward voice synthesis request to the voice synthesis service"""
     try:
-        # Get the request body
-        try:
-            body = await request.json()
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Request body is required and must be valid JSON")
-        
-        if not body:
-            raise HTTPException(status_code=400, detail="Empty request body")
-            
+        # Convert pydantic model to dict
+        body = request.dict()
         logger.info(f"Forwarding voice synthesis request: {json.dumps(body, default=str)[:200]}...")
         
         # Extra debug logging for service URL
@@ -982,19 +975,19 @@ async def synthesize_voice(request: Request):
         logger.error(f"Error in voice synthesis: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error in voice synthesis: {str(e)}")
 
+class VisualGenerationRequest(BaseModel):
+    script: str
+    type: str
+    style: str
+    resolution: Optional[str] = "1024x1024"
+    
+
 @app.post("/api/visuals")
-async def generate_visuals(request: Request):
+async def generate_visuals(request: VisualGenerationRequest):
     """Forward visual generation request to the visual generation service"""
     try:
-        # Get the request body
-        try:
-            body = await request.json()
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Request body is required and must be valid JSON")
-        
-        if not body:
-            raise HTTPException(status_code=400, detail="Empty request body")
-            
+        # Convert pydantic model to dict
+        body = request.dict()
         logger.info(f"Forwarding visual generation request: {json.dumps(body, default=str)[:200]}...")
         
         # Extra debug logging for service URL
