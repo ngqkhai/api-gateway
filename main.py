@@ -17,7 +17,9 @@ from database import (
     update_job_status, 
     get_job,
     update_job_from_script_ready,
-    JobStatus
+    JobStatus,
+    MONGO_DB,
+    db
 )
 from message_broker import MessageBroker
 from websocket import ConnectionManager
@@ -108,7 +110,7 @@ async def handle_script_ready(data: Dict[str, Any]):
     """Handle a script.ready event from the RabbitMQ queue"""
     try:
         # Import necessary modules inside the function to avoid circular imports
-        from database import db, MONGO_COLLECTIONS, get_job, create_job, JobStatus
+        from database import db, MONGO_DB, get_job, create_job, JobStatus
 
         # If we received a string (possibly a Python repr with single quotes), try to parse it
         if isinstance(data, str):
@@ -563,25 +565,49 @@ async def process_script(
 
 @app.get("/api/collections/{collection_id}")
 async def get_collection(collection_id: str):
-    """Get a collection by ID"""
+    """
+    Get a collection and all its associated jobs by collection_id
+    """
     try:
-        # Use the make_service_request helper which has retry logic
-        logger.info(f"Fetching collection: {collection_id}")
-        response = await make_service_request(
-            "GET",
-            f"{DATA_COLLECTOR_URL}/api/collections/{collection_id}"
-        )
+        logger.info(f"Retrieving collection with ID: {collection_id}")
         
-        logger.info(f"Collection fetch successful with status: {response.status_code}")
-        return response.json()
-    except HTTPException as he:
-        # Re-raise HTTP exceptions directly
-        logger.error(f"HTTP error fetching collection: {str(he)}")
-        raise
+        # Access the jobs collection using MONGO_JOBS_COLLECTION from config
+        jobs_collection = db[MONGO_DB]
+        
+        # Find all jobs with the given collection_id
+        cursor = jobs_collection.find({"collection_id": collection_id})
+        jobs = await cursor.to_list(length=100)
+        
+        if not jobs:
+            logger.warning(f"No jobs found for collection_id: {collection_id}")
+            raise HTTPException(status_code=404, detail=f"Collection {collection_id} not found")
+        
+        # Transform jobs for frontend
+        collection_jobs = []
+        for job in jobs:
+            # Convert ObjectId to string
+            if "_id" in job:
+                job["_id"] = str(job["_id"])
+            
+            # Ensure job_id is present
+            if "job_id" not in job and "_id" in job:
+                job["job_id"] = job["_id"]
+                
+            collection_jobs.append(job)
+        
+        logger.info(f"Found {len(collection_jobs)} jobs for collection_id: {collection_id}")
+        
+        # Return the collection data including all jobs
+        return {
+            "collection_id": collection_id,
+            "jobs": collection_jobs,
+            "total_jobs": len(collection_jobs)
+        }
+        
     except Exception as e:
-        # Log and wrap other exceptions
-        logger.error(f"Error fetching collection: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching collection: {str(e)}")
+        error_msg = f"Error retrieving collection {collection_id}: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 @app.get("/api/scripts/{script_id}/status")

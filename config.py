@@ -26,7 +26,7 @@ TIMEOUT = 30.0  # seconds
 MAX_RETRIES = 3
 
 # CORS Configuration
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
 
 # Logging Configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO") 
