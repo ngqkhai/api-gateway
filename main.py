@@ -943,7 +943,14 @@ async def synthesize_voice(request: Request):
     """Forward voice synthesis request to the voice synthesis service"""
     try:
         # Get the request body
-        body = await request.json()
+        try:
+            body = await request.json()
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Request body is required and must be valid JSON")
+        
+        if not body:
+            raise HTTPException(status_code=400, detail="Empty request body")
+            
         logger.info(f"Forwarding voice synthesis request: {json.dumps(body, default=str)[:200]}...")
         
         # Extra debug logging for service URL
@@ -975,18 +982,19 @@ async def synthesize_voice(request: Request):
         logger.error(f"Error in voice synthesis: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error in voice synthesis: {str(e)}")
 
-class VisualGenerationRequest(BaseModel):
-    script: str
-    type: str
-    style: str
-    resolution: str
-
 @app.post("/api/visuals")
 async def generate_visuals(request: Request):
     """Forward visual generation request to the visual generation service"""
     try:
         # Get the request body
-        body = await request.json()
+        try:
+            body = await request.json()
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Request body is required and must be valid JSON")
+        
+        if not body:
+            raise HTTPException(status_code=400, detail="Empty request body")
+            
         logger.info(f"Forwarding visual generation request: {json.dumps(body, default=str)[:200]}...")
         
         # Extra debug logging for service URL
@@ -1018,11 +1026,7 @@ async def generate_visuals(request: Request):
         logger.error(f"Error in visual generation: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error in visual generation: {str(e)}")
 
-@app.options("/api/v1/voice/synthesize")
-@app.options("/api/visuals")
-async def options_handler():
-    """Handle CORS preflight requests"""
-    return {}
+
 
 # Handler for Vercel serverless function
 if __name__ == "__main__":
